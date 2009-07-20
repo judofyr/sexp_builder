@@ -1,0 +1,253 @@
+  ~ ~ NOTE ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+  I'm just pushing the latest changes out before I'll go on
+  holiday, so at the moment it's not 100% finished.
+  
+  Tests are coming later
+  
+  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+
+= SexpBuilder
+
+SexpBuilder is an alternative to SexpProcessor which allows you to match and rewrite S-expressions based on recursive descent SexpPaths. You probably want to read http://github.com/adamsanderson/sexp_path before you proceed.
+
+SexpBuilder works on any S-expressions, but all of these examples uses Ruby's S-expressions as given from ParseTree and RubyParser.
+
+= Synopsis
+  
+  # Inherit SexpBuilder:
+  class Andand < SexpBuilder
+    
+    ## Rules
+    #
+    # Rules are simply snippets of SexpPath which can refer to each other
+    # and itself. They are basically method definition, so they can take 
+    # arguments too.
+    
+    # This matches foo.andand:     
+    rule :andand_base do
+      s(:call,          # a method call
+        _ % :receiver,  # the receiver
+        :andand,        # the method name
+        s(:arglist))    # the arguments
+    end
+    
+    # This matches foo.andand.bar
+    rule :andand_call do
+      s(:call,         # a method call
+        andand_base,   # foo.andand
+        _ % :name,     # the method name
+        _ % :args)     # the arguments
+    end
+    
+    # This matches foo.andand.bar { |args| block }
+    rule :andand_iter do
+      s(:iter,           # a block
+        andand_call,     # the method call
+        _ % :blockargs,  # the arguments passed to the block
+        _ % :block)      # content of the block
+    end
+    
+    ## Rewriters
+    #
+    # Rewriters take one or more rules and defines replacements when they 
+    # match. The data-object from SexpPath is given as an argument.
+    
+    # This will rewrite:
+    #
+    #   foo.andand.bar     => (tmp = foo) && tmp.bar
+    #   foo.andand.bar { } => (tmp = foo) && tmp.bar { }
+    # 
+    rewrite :andand_call, :andand_iter do |data|
+      # get a tmpvar (see below for definition)
+      tmp = tmpvar
+      
+      # tmp = foo
+      assign = s(:lasgn, tmp, process(data[:receiver]))
+      
+      # tmp.bar
+      call   = s(:call, s(:lasgn, tmp), data[:name], process(data[:args]))
+      
+      # tmp.bar { }
+      if data[:block]
+        call = s(:iter,
+                 call,
+                 process(data[:blockargs]),
+                 process(data[:block]))
+      end
+      
+      # (tmp = foo) && tmp.bar
+      s(:and,
+        assign,
+        call)
+    end
+    
+    ## Other methods
+    
+    def initialize
+      @tmp = 0
+      super           # don't forget to call super!
+    end
+    
+    # Generates a random variable.
+    def tmpvar
+      "__andand_#{@tmp += 1}".to_sym
+    end
+  end
+  
+  # instantiate a new processor 
+  processor = Andand.new
+
+  # foo.andand.bar
+  example =
+  s(:call,
+   s(:call, s(:call, nil, :foo, s(:arglist)), :andand, s(:arglist)),
+   :bar,
+   s(:arglist))
+   
+  # process it
+  result = processor.process(example)
+  pp result
+ 
+  # s(:and,
+  #  s(:lasgn, :__andand_1, s(:call, nil, :foo, s(:arglist))),
+  #  s(:call, s(:lasgn, :__andand_1), :bar, s(:arglist)))
+  
+  # BONUS: turn it into Ruby with Ruby2Ruby
+  require 'ruby2ruby'
+ 
+  ruby = Ruby2Ruby.new.process(result)
+  puts ruby
+ 
+  # (__andand_1 = foo and (__andand_1).bar)
+  
+= More
+
+SexpBuilder has four different concepts:
+
+ * Matchers
+ * Rules
+ * Rewriters
+ * Contexts
+ 
+== Matchers
+
+A matcher is a bit of Ruby code which can be used in your rules. The expression it should match is passed in, and it should return a true-ish value if it matches. The matcher will be evaluated under the instatiated processor, so you can use  other instance methods and instance variables too.
+  
+  class Example < SexpBuilder
+    matcher :five_arguments do |exp|
+      self             # => the instance of Example
+      exp.length == 6  # the first will always be :arglist 
+    end
+    
+    rule :magic_call do
+      s(:call,          # a method call
+        nil,            # no receiver
+        :MAGIC!,        # method name
+        five_arguments) # our matcher
+    end
+  end
+  
+== Rules
+
+You've heard it before, but let's repeat: Rules are simply snippets of SexpPath which can refer to each other and itself. They are basically method definition, so they can take arguments too.
+
+The rule will be evaluated under a special scope, but if you really need it you can access the instatiated processor using `instance`. You should however move any specific Ruby code into a matcher and let the rules simply contain other rules and matchers.
+
+  class Example < SexpBuilder
+    # Matches any number.
+    rule :number do |capture_as|
+      # Doesn't make very much sense to take an argument here,
+      # it's just an example
+      s(:lit, _ % capture_as)
+    end
+    
+    # Matches a sequence of plusses: 1 + 2 + 3
+    rule :plus_sequence do
+      s(:call,               # a method call
+         number(:number) |   # the receiver can be a number
+         plus_sequence,      # or a sequence   
+        :+,
+        s(:arglist,
+         number(:number) |   # the argument can be a number
+         plus_sequence       # or a sequence
+    end
+  end
+  
+== Rewriters
+
+Rewriters take one or more rules and defines replacements when they match. The data-object from SexpPath is given as an argument. If you want some of the sub-expressions matched too, you'll have to call process yourself.
+
+  class Example < SexpBuilder
+    
+    # We want to rewrite the plus_sequence above
+    rewrite :plus_sequence do |data|
+      # sum the numbers
+      sum = data[:number].inject { |all, one| all + one }
+      # return a new number
+      s(:lit, sum)
+    end
+    
+    rewrite :something_else do |data|
+      # process the block in case it also needs to be rewritten
+      block = process(data[:block])
+      do_funky_stuff(block)
+    end
+  end
+  
+== Contexts
+
+Contexts allows you to group a set of rewriters together. It will inherit the parents rules and matchers.
+
+  class Example < SexpBuilder
+    # Matches a class definition
+    rule :class_def do
+      s(:class,
+        _ % :name,
+        _ % :parent,
+        _ % :content)
+    end
+    
+    rewrite :class_def do |data|
+      # NOTICE: we use process_class to enter the class-context.
+      content = process_class(data[:content])
+      do_funky_stuff(content)
+    end
+
+    # Only for stuff inside a class:
+    context :class do
+      rule :method_definition do
+        s(:defn,
+          _ % :name,
+          _ % :args,
+          _ % :content)
+      end
+      
+      rewrite :method_definition do |data|
+        # this will continue processing in the class-context.
+        # use process_main to enter the main context again.
+        content = process(data[:content])
+        do_funky_stuff(content)
+      end
+    end
+    
+  end
+  
+If you subclass your processor, it will also enter a new context:
+
+  class ModuleContext < Example
+    # use process_module to enter this context.
+  end
+  
+By default it takes the last part of the name, removes "Context" or "Builder" at the end and turns it into snake case. If needed, you can easily override this yourself (remember to turn it into a writable method name though):
+
+  def Example.context_name(mod)
+    "context#{rand(10)}"
+  end
+  
+= License
+
+See COPYING for legal information. It's a MIT license which allows you to do
+pretty much what you want with it, and *please* do!
+    
