@@ -44,18 +44,6 @@ class SexpBuilder
       end
     end
     
-    class Not < SexpPath::Matcher::Base
-      def initialize(matcher)
-        @matcher = matcher
-      end
-      
-      def satisfy?(o, data={})
-        unless @matcher.satisfy?(o)
-          capture_match o, data
-        end
-      end
-    end
-    
     class << self
       attr_accessor :instance
       
@@ -63,10 +51,6 @@ class SexpBuilder
         query_builder = Class.new(QueryBuilder) { extend context.query_scope }
         query_builder.instance = instance
         query_builder
-      end
-      
-      def n(matcher)
-        Not.new(matcher)
       end
       
       def scope(type)
