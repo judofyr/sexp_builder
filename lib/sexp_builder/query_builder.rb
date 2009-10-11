@@ -40,7 +40,7 @@ class SexpBuilder
       end
       
       def inspect
-        "rule(:#{@real_name}" 
+        "rule(:#{@real_name})" 
       end
     end
     
