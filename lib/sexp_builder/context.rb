@@ -15,10 +15,6 @@ class SexpBuilder
       end
     end
     
-    def query_builder(instance)
-      QueryBuilder.make(self, instance)
-    end
-    
     def main_context
       if @parent
         @parent.main_context
@@ -27,31 +23,16 @@ class SexpBuilder
       end
     end
     
-    def find_context(name)
-      return main_context if name == :main
-      
-      if context = @contexts[name]
-        return context
-      end
-      
-      @contexts.each do |_, context|
-        if context = context.find_context(name)
-          return context
-        end
-      end
-      
-      nil
-    end
-    
     def context(name, &blk)
-      context = define_context(name)
+      context = define_context(name.to_sym)
       context.instance_eval(&blk) if blk
       context
     end
     
     def matcher(name, &blk)
-      method_name = define_builder(&blk)
-
+      method_name = "matcher_#{name}"
+      define(method_name, &blk)
+      
       define_query_scope(name) do
         block do |exp|
           instance.send(method_name, exp)
@@ -60,25 +41,22 @@ class SexpBuilder
     end
     
     def rule(name, &blk)
-      method_name = define_anon_query_scope(&blk)
+      real_name = "real_#{name}"
+      define_query_scope(real_name, &blk)
       define_query_scope(name) do |*args|
-        QueryBuilder::Deferred.new(self, method_name, args, name)
+        QueryBuilder::Deferred.new(self, real_name, args, name)
       end
     end
     
     def rewrite(*rules, &blk)
       options = rules.last.is_a?(Hash) ? rules.pop : {}
-      
-      if options[:in]
-        context(options[:in]).rewrite(*rules, &blk)
-        return
-      end
-      
-      name = define_builder(&blk)
-      
       rules << :wild if rules.empty?
+      
+      return context(options[:in]).rewrite(*rules, &blk) if options[:in]
+      
       rules.each do |rule|
-        @rewriters << [rule, name]
+        @rewriters << rule
+        define("rewrite_#{rule}", &blk)
       end
     end
     
@@ -86,33 +64,27 @@ class SexpBuilder
     
     def define_context(name)
       @contexts[name] ||= begin      
-        @builder.send(:define_method, "process_#{name}") do |*args|
-          options = args.last.is_a?(Hash) ? args.pop : {}
-          options[:in] = name
-          args << options
-          process(*args)
-        end                     
+        context = Context.new(@builder, self)
         
-        Context.new(@builder, self)
+        define("process_#{name}") do |*args|
+          begin
+            prev, @context = @context, context
+            process(*args)
+          ensure
+            @context = prev
+          end
+        end                  
+        
+        context
       end
-    end
-    
-    def define_builder(&blk)
-      define_anonymous(@builder, &blk)
-    end
-    
-    def define_anon_query_scope(&blk)
-      define_anonymous(@query_scope, &blk)
     end
     
     def define_query_scope(name, &blk)
       @query_scope.send(:define_method, name, &blk)
     end
     
-    def define_anonymous(receiver, &blk)
-      name = "__sexp_builder#{@builder.tmpid}"
-      receiver.send(:define_method, name, &blk)
-      name
+    def define(name, &blk)
+      @builder.send(:define_method, name, &blk)
     end
   end
 end
