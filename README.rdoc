@@ -1,8 +1,11 @@
 = SexpBuilder
 
-SexpBuilder is an alternative to SexpProcessor which allows you to match and rewrite S-expressions based on recursive descent SexpPaths. You probably want to read http://github.com/adamsanderson/sexp_path before you proceed.
+SexpBuilder is an alternative to SexpProcessor which allows you to match and
+rewrite S-expressions based on recursive descent SexpPaths. You probably want
+to read http://github.com/adamsanderson/sexp_path before you proceed.
 
-SexpBuilder works on any S-expressions, but all of these examples uses Ruby's S-expressions as given from ParseTree and RubyParser.
+SexpBuilder works on any S-expressions, but all of these examples uses Ruby's
+S-expressions as given from ParseTree and RubyParser.
 
 == Synopsis
   
@@ -123,7 +126,10 @@ SexpBuilder has four different concepts:
  
 === Matchers
 
-A matcher is a bit of Ruby code which can be used in your rules. The expression it should match is passed in, and it should return a true-ish value if it matches. The matcher will be evaluated under the instatiated processor, so you can use other instance methods and instance variables too.
+A matcher is a bit of Ruby code which can be used in your rules. The
+expression it should match is passed in, and it should return a true-ish value
+if it matches. The matcher will be evaluated under the instantiated processor,
+so you can use other instance methods and instance variables too.
   
   class Example < SexpBuilder
     matcher :five_arguments do |exp|
@@ -141,9 +147,14 @@ A matcher is a bit of Ruby code which can be used in your rules. The expression 
   
 === Rules
 
-You've heard it before, but let's repeat: Rules are simply snippets of SexpPath which can refer to each other and itself. They are basically method definition, so they can take arguments too.
+You've heard it before, but let's repeat: Rules are simply snippets of
+SexpPath which can refer to each other and itself. They are basically method
+definition, so they can take arguments too.
 
-The rule will be evaluated under a special scope, but if you really need it you can access the instatiated processor using `instance`. You should however move any specific Ruby code into a matcher and let the rules simply contain other rules and matchers.
+The rule will be evaluated under a special scope, but if you really need it
+you can access the instantiated processor using `instance`. You should however
+move any specific Ruby code into a matcher and let the rules simply contain
+other rules and matchers.
 
   class Example < SexpBuilder
     # Matches any number.
@@ -167,7 +178,9 @@ The rule will be evaluated under a special scope, but if you really need it you 
   
 === Rewriters
 
-Rewriters take one or more rules and defines replacements when they match. The data-object from SexpPath is given as an argument. If you want some of the sub-expressions matched too, you'll have to call process yourself.
+Rewriters take one or more rules and defines replacements when they match. The
+data-object from SexpPath is given as an argument. If you want some of the
+sub-expressions matched too, you'll have to call process yourself.
 
   class Example < SexpBuilder
     
@@ -188,7 +201,8 @@ Rewriters take one or more rules and defines replacements when they match. The d
   
 === Contexts
 
-Contexts allows you to group a set of rewriters together. It will inherit the parents rules and matchers.
+Contexts allows you to group a set of rewriters together. It will inherit the
+parents rules and matchers.
 
   class Example < SexpBuilder
     # Matches a class definition
@@ -230,7 +244,9 @@ If you subclass your processor, it will also enter a new context:
     # use process_module to enter this context.
   end
   
-By default it takes the last part of the name, removes "Context" or "Builder" at the end and turns it into snake case. If needed, you can easily override this yourself (remember to turn it into a writable method name though):
+By default it takes the last part of the name, removes "Context" or "Builder"
+at the end and turns it into snake case. If needed, you can easily override
+this yourself (remember to turn it into a writable method name though):
 
   def Example.context_name(mod)
     "context#{rand(10)}"
