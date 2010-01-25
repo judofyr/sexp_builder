@@ -1,20 +1,10 @@
-  ~ ~ NOTE ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-
-  I'm just pushing the latest changes out before I'll go on
-  holiday, so at the moment it's not 100% finished.
-  
-  Tests are coming later
-  
-  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-
-
 = SexpBuilder
 
 SexpBuilder is an alternative to SexpProcessor which allows you to match and rewrite S-expressions based on recursive descent SexpPaths. You probably want to read http://github.com/adamsanderson/sexp_path before you proceed.
 
 SexpBuilder works on any S-expressions, but all of these examples uses Ruby's S-expressions as given from ParseTree and RubyParser.
 
-= Synopsis
+== Synopsis
   
   # Inherit SexpBuilder:
   class Andand < SexpBuilder
@@ -122,18 +112,18 @@ SexpBuilder works on any S-expressions, but all of these examples uses Ruby's S-
  
   # (__andand_1 = foo and (__andand_1).bar)
   
-= More
+== More
 
 SexpBuilder has four different concepts:
 
- * Matchers
- * Rules
- * Rewriters
- * Contexts
+* Matchers
+* Rules
+* Rewriters
+* Contexts
  
-== Matchers
+=== Matchers
 
-A matcher is a bit of Ruby code which can be used in your rules. The expression it should match is passed in, and it should return a true-ish value if it matches. The matcher will be evaluated under the instatiated processor, so you can use  other instance methods and instance variables too.
+A matcher is a bit of Ruby code which can be used in your rules. The expression it should match is passed in, and it should return a true-ish value if it matches. The matcher will be evaluated under the instatiated processor, so you can use other instance methods and instance variables too.
   
   class Example < SexpBuilder
     matcher :five_arguments do |exp|
@@ -149,7 +139,7 @@ A matcher is a bit of Ruby code which can be used in your rules. The expression 
     end
   end
   
-== Rules
+=== Rules
 
 You've heard it before, but let's repeat: Rules are simply snippets of SexpPath which can refer to each other and itself. They are basically method definition, so they can take arguments too.
 
@@ -175,7 +165,7 @@ The rule will be evaluated under a special scope, but if you really need it you 
     end
   end
   
-== Rewriters
+=== Rewriters
 
 Rewriters take one or more rules and defines replacements when they match. The data-object from SexpPath is given as an argument. If you want some of the sub-expressions matched too, you'll have to call process yourself.
 
@@ -196,7 +186,7 @@ Rewriters take one or more rules and defines replacements when they match. The d
     end
   end
   
-== Contexts
+=== Contexts
 
 Contexts allows you to group a set of rewriters together. It will inherit the parents rules and matchers.
 
@@ -246,7 +236,7 @@ By default it takes the last part of the name, removes "Context" or "Builder" at
     "context#{rand(10)}"
   end
   
-= License
+== License
 
 See COPYING for legal information. It's a MIT license which allows you to do
 pretty much what you want with it, and *please* do!
